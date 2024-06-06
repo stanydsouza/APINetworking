@@ -5,7 +5,13 @@ import PackageDescription
 
 let package = Package(
     name: "APINetworking",
-    platforms: [.iOS(.v13), .macOS(.v12)],
+    platforms: [
+        .iOS(.v13),
+        .macOS(.v12),
+        .tvOS(.v12),
+        .watchOS(.v6),
+        .visionOS(.v1)
+    ],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
@@ -20,5 +26,6 @@ let package = Package(
         .testTarget(
             name: "APINetworkingTests",
             dependencies: ["APINetworking"]),
-    ]
+    ],
+    swiftLanguageVersions: [.v5]
 )
