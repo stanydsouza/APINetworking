@@ -1,2 +1,3 @@
 # APINetworking
-API service in swift
+
+APINetworking is an HTTP networking Swift package.
