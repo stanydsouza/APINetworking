@@ -9,13 +9,17 @@ import Foundation
 
 public protocol APINetworkingProtocol: AnyObject {
     
-    func callRequest(_ request: URLRequest) async throws -> Data
+    func sendRequest(_ request: URLRequest) async throws -> Data
     
-    func callRequest<T: Decodable>(_ request: URLRequest) async throws -> T
+    func sendRequest<T: Decodable>(_ request: URLRequest, decoder: JSONDecoder) async throws -> T
     
-    func callRequest(apiUrl: String, apiMethod: APIMethod, headers: [String:String]?) async throws -> Data
+    func sendRequest(apiUrl: String, apiMethod: APIMethod, headers: [String:String]?) async throws -> Data
     
-    func callRequest<T: Decodable>(apiUrl: String, apiMethod: APIMethod, headers: [String:String]?) async throws -> T
+    func sendRequest<T: Decodable>(apiUrl: String, apiMethod: APIMethod, headers: [String:String]?, decoder: JSONDecoder) async throws -> T
+    
+    func sendRequest(url: URL, apiMethod: APIMethod, headers: [String:String]?) async throws -> Data
+    
+    func sendRequest<T: Decodable>(url: URL, apiMethod: APIMethod, headers: [String:String]?, decoder: JSONDecoder) async throws -> T
     
 }
 
@@ -25,8 +29,7 @@ public final class APINetworking: APINetworkingProtocol {
     
     private init() {}
     
-    private func createRequest(apiUrl: String, apiMethod: APIMethod, headers: [String : String]?) throws -> URLRequest {
-        guard let url = URL(string: apiUrl) else { throw APIError.urlError }
+    private func createRequest(url: URL, apiMethod: APIMethod, headers: [String : String]?) throws -> URLRequest {
         
         let reqHeaders = headers ?? ["Content-Type": "application/json"]
         
@@ -54,39 +57,60 @@ public final class APINetworking: APINetworkingProtocol {
         return request
     }
     
-    public func callRequest(
-        apiUrl: String,
-        apiMethod: APIMethod,
-        headers: [String:String]?
-    ) async throws -> Data {
+    private func createRequest(apiUrl: String, apiMethod: APIMethod, headers: [String : String]?) throws -> URLRequest {
+        guard let url = URL(string: apiUrl) else { throw APIError.urlError }
+        return try createRequest(url: url, apiMethod: apiMethod, headers: headers)
+    }
+    
+    public func sendRequest(url: URL, apiMethod: APIMethod, headers: [String : String]?) async throws -> Data {
+        let request = try createRequest(
+            url: url,
+            apiMethod: apiMethod,
+            headers: headers
+        )
+        return try await sendRequest(request)
+    }
+    
+    public func sendRequest<T>(url: URL, apiMethod: APIMethod, headers: [String : String]?, decoder: JSONDecoder) async throws -> T where T : Decodable {
+        let request = try createRequest(
+            url: url,
+            apiMethod: apiMethod,
+            headers: headers
+        )
+        return try await sendRequest(request, decoder: decoder)
+    }
+    
+    public func sendRequest(apiUrl: String, apiMethod: APIMethod, headers: [String:String]?) async throws -> Data {
         let request = try createRequest(
             apiUrl: apiUrl,
             apiMethod: apiMethod,
             headers: headers
         )
-        return try await callRequest(request)
+        return try await sendRequest(request)
     }
     
-    public func callRequest<T>(
+    public func sendRequest<T>(
         apiUrl: String,
         apiMethod: APIMethod,
-        headers: [String : String]?
+        headers: [String : String]?,
+        decoder: JSONDecoder
     ) async throws -> T where T : Decodable {
         let request = try createRequest(
             apiUrl: apiUrl,
             apiMethod: apiMethod,
             headers: headers
         )
-        return try await callRequest<T>(request)
+        return try await sendRequest(request, decoder: decoder)
     }
     
-    public func callRequest<T: Decodable>(
-        _ request: URLRequest
+    public func sendRequest<T: Decodable>(
+        _ request: URLRequest,
+        decoder: JSONDecoder
     ) async throws -> T {
-        let data = try await callRequest(request)
+        let data = try await sendRequest(request)
         
         do {
-            let resp = try JSONDecoder().decode(T.self, from: data)
+            let resp = try decoder.decode(T.self, from: data)
             return resp
         }
         catch{
@@ -94,7 +118,7 @@ public final class APINetworking: APINetworkingProtocol {
         }
     }
     
-    public func callRequest(
+    public func sendRequest(
         _ request: URLRequest
     ) async throws -> Data{
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -116,5 +140,19 @@ public final class APINetworking: APINetworkingProtocol {
         print("API response =>", String(data: data, encoding: .utf8) ?? "Unable to print response")
 #endif
         return data
+    }
+}
+
+public extension APINetworkingProtocol {
+    func sendRequest<T: Decodable>(_ request: URLRequest, decoder: JSONDecoder = JSONDecoder()) async throws -> T {
+        try await sendRequest(request, decoder: decoder)
+    }
+    
+    func sendRequest<T: Decodable>(apiUrl: String, apiMethod: APIMethod, headers: [String:String]? = nil, decoder: JSONDecoder = JSONDecoder()) async throws -> T {
+        try await sendRequest(apiUrl: apiUrl, apiMethod: apiMethod, headers: headers, decoder: decoder)
+    }
+    
+    func sendRequest<T: Decodable>(url: URL, apiMethod: APIMethod, headers: [String:String]? = nil, decoder: JSONDecoder = JSONDecoder()) async throws -> T {
+        try await sendRequest(url: url, apiMethod: apiMethod, headers: headers, decoder: decoder)
     }
 }

@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum APIError : Error, LocalizedError, Equatable {
+public enum APIError: LocalizedError, Equatable {
     
     case apiError(reason: String)
     case jsonDecoding
